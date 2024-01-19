@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	promexp "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
-	"golang.org/x/exp/slog"
 )
 
 type (

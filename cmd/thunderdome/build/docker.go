@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 //go:embed dockerassets

@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/plprobelab/thunderdome/pkg/prom"
 	"github.com/plprobelab/thunderdome/pkg/run"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -112,7 +112,7 @@ var app = &cli.App{
 func Run(cc *cli.Context) error {
 	logLevel := new(slog.LevelVar)
 	logLevel.Set(slog.LevelWarn)
-	slog.SetDefault(slog.New(slog.HandlerOptions{Level: logLevel}.NewTextHandler(os.Stdout)))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel})))
 
 	if options.verbose {
 		logLevel.Set(slog.LevelInfo)

@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/plprobelab/thunderdome/pkg/exp"
-	"golang.org/x/exp/slog"
 )
 
 const imageBaseName = "thunderdome"

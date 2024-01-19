@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/aws/aws-sdk-go/aws/session"
-	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,7 +32,7 @@ func CheckSequence(ctx context.Context, sess *session.Session, component string,
 			if failureText == "" {
 				failureText = fmt.Sprintf("%s: no", c.Name)
 			}
-			logger.Log(slog.LevelError, failureText)
+			logger.Log(ctx, slog.LevelError, failureText)
 			return false, nil
 		}
 		logger.Info(c.Name)

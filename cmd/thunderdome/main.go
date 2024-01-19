@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"log/slog"
+
 	"github.com/urfave/cli/v2"
-	"golang.org/x/exp/slog"
 )
 
 const (
@@ -46,13 +47,7 @@ func setupLogging() {
 		logLevel.Set(slog.LevelDebug)
 	}
 
-	if commonOpts.nocolor {
-		slog.SetDefault(slog.New(slog.HandlerOptions{Level: logLevel}.NewTextHandler(os.Stdout)))
-	} else {
-		h := NewInteractiveHandler()
-		h = h.WithLevel(logLevel.Level())
-		slog.SetDefault(slog.New(h))
-	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel.Level()})))
 }
 
 func checkBuildEnv() error {

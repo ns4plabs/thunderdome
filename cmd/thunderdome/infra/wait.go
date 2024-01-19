@@ -4,8 +4,9 @@ import (
 	"context"
 	"time"
 
+	"log/slog"
+
 	"github.com/aws/aws-sdk-go/aws/session"
-	"golang.org/x/exp/slog"
 )
 
 // WaitUntil repeatedly calls condition until condition returns true or an error or the context is cancelled.
