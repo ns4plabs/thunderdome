@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"golang.org/x/exp/slog"
+	"log/slog"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awscfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	dynamotypes "github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type DB struct {
@@ -30,18 +32,16 @@ var ErrNotFound = errors.New("not found")
 func (d *DB) RecordExperimentStart(ctx context.Context, rec *ExperimentRecord) error {
 	logger := slog.With("experiment", rec.Name)
 	logger.Info("recording experiment start")
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(d.AwsRegion),
-	})
+	sdkConfig, err := awscfg.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
 
-	svc := dynamodb.New(sess)
+	svc := dynamodb.NewFromConfig(sdkConfig)
 
 	din := &dynamodb.PutItemInput{
 		TableName: aws.String(d.TableName),
-		Item: map[string]*dynamodb.AttributeValue{
+		Item: map[string]dynamotypes.AttributeValue{
 			"name": {
 				S: aws.String(rec.Name),
 			},
@@ -60,7 +60,7 @@ func (d *DB) RecordExperimentStart(ctx context.Context, rec *ExperimentRecord) e
 		},
 	}
 
-	if _, err := svc.PutItem(din); err != nil {
+	if _, err := svc.PutItem(ctx, din); err != nil {
 		return fmt.Errorf("write item: %w", err)
 	}
 
@@ -70,14 +70,12 @@ func (d *DB) RecordExperimentStart(ctx context.Context, rec *ExperimentRecord) e
 func (d *DB) RecordExperimentEnd(ctx context.Context, name string, end int64) error {
 	logger := slog.With("experiment", name)
 	logger.Info("recording experiment end")
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(d.AwsRegion),
-	})
+	sdkConfig, err := awscfg.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return fmt.Errorf("new session: %w", err)
 	}
 
-	svc := dynamodb.New(sess)
+	svc := dynamodb.NewFromConfig(sdkConfig)
 
 	in := &dynamodb.UpdateItemInput{
 		TableName: aws.String(d.TableName),
@@ -114,7 +112,7 @@ func (d *DB) RemoveExperiment(ctx context.Context, name string) error {
 		return fmt.Errorf("new session: %w", err)
 	}
 
-	svc := dynamodb.New(sess)
+	svc := dynamodb.New(cfg)
 
 	in := &dynamodb.DeleteItemInput{
 		TableName: aws.String(d.TableName),
@@ -141,7 +139,7 @@ func (d *DB) ListExperiments(ctx context.Context) ([]ExperimentRecord, error) {
 		return nil, fmt.Errorf("new session: %w", err)
 	}
 
-	svc := dynamodb.New(sess)
+	svc := dynamodb.New(cfg)
 
 	in := &dynamodb.ScanInput{
 		TableName: aws.String(d.TableName),
@@ -214,7 +212,7 @@ func (d *DB) GetExperiment(ctx context.Context, name string) (*ExperimentRecord,
 		return nil, fmt.Errorf("new session: %w", err)
 	}
 
-	svc := dynamodb.New(sess)
+	svc := dynamodb.New(cfg)
 
 	in := &dynamodb.GetItemInput{
 		TableName: aws.String(d.TableName),

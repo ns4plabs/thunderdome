@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	"log/slog"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"golang.org/x/exp/slog"
 )
 
 func findTaskDefinition(family string, sess *session.Session) (string, int64, error) {

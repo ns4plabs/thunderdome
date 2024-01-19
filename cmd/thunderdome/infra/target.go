@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 
 	// "github.com/aws/aws-sdk-go/service/servicediscovery"
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/plprobelab/thunderdome/cmd/ironbar/api"
 )

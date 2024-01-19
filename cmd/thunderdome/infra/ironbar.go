@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 
 	"github.com/plprobelab/thunderdome/cmd/ironbar/api"
 	"github.com/plprobelab/thunderdome/pkg/exp"

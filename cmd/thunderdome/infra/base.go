@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"log/slog"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"golang.org/x/exp/slog"
 )
 
 type BaseInfra struct {

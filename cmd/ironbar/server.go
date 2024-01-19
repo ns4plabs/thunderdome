@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"log/slog"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awscfg "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/gorilla/mux"
-	"golang.org/x/exp/slog"
 
 	"github.com/plprobelab/thunderdome/cmd/ironbar/api"
 	"github.com/plprobelab/thunderdome/pkg/prom"
@@ -185,9 +187,7 @@ func (s *Server) CheckResources(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(s.awsRegion),
-	})
+	sdkConfig, err := awscfg.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		slog.Error("failed to create aws session", err)
 		return
@@ -222,7 +222,7 @@ func (s *Server) CheckResources(ctx context.Context) {
 		for _, res := range mr.Resources {
 			switch res.Type {
 			case api.ResourceTypeEcsTask:
-				active, err := isTaskActive(ctx, sess, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn])
+				active, err := isTaskActive(ctx, sdkConfig, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					logger.Error("failed to check whether task is active", err, "arn", res.Keys[api.ResourceKeyArn], "cluster_arn", res.Keys[api.ResourceKeyEcsClusterArn])
 					s.checkErrorsCounter.Add(1)
@@ -234,13 +234,13 @@ func (s *Server) CheckResources(ctx context.Context) {
 				}
 				anyActive = true
 				logger.Info("task is active, stopping it")
-				if err := stopEcsTask(ctx, sess, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn]); err != nil {
+				if err := stopEcsTask(ctx, sdkConfig, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn]); err != nil {
 					logger.Error("failed to stop task", err, "arn", res.Keys[api.ResourceKeyArn], "cluster_arn", res.Keys[api.ResourceKeyEcsClusterArn])
 					s.checkErrorsCounter.Add(1)
 				}
 
 			case api.ResourceTypeEcsTaskDefinition:
-				active, err := isTaskDefinitionActive(ctx, sess, res.Keys[api.ResourceKeyArn])
+				active, err := isTaskDefinitionActive(ctx, sdkConfig, res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					logger.Error("failed to check whether task definition is active", err, "arn", res.Keys[api.ResourceKeyArn])
 					s.checkErrorsCounter.Add(1)
@@ -252,13 +252,13 @@ func (s *Server) CheckResources(ctx context.Context) {
 				}
 				anyActive = true
 				logger.Info("task definition is active, deregistering it")
-				if err := deregisterEcsTaskDefinition(ctx, sess, res.Keys[api.ResourceKeyArn]); err != nil {
+				if err := deregisterEcsTaskDefinition(ctx, sdkConfig, res.Keys[api.ResourceKeyArn]); err != nil {
 					logger.Error("failed to deregister task definition", err, "arn", res.Keys[api.ResourceKeyArn])
 					s.checkErrorsCounter.Add(1)
 				}
 
 			case api.ResourceTypeEcsSnsSubscription:
-				active, err := isSnsSubscriptionActive(ctx, sess, res.Keys[api.ResourceKeyArn])
+				active, err := isSnsSubscriptionActive(ctx, sdkConfig, res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					logger.Error("failed to check whether subscription is active", err, "arn", res.Keys[api.ResourceKeyArn])
 					s.checkErrorsCounter.Add(1)
@@ -271,13 +271,13 @@ func (s *Server) CheckResources(ctx context.Context) {
 				}
 				anyActive = true
 				logger.Info("subscription is active, unsubscribing")
-				if err := unsubscribeSqsQueue(ctx, sess, res.Keys[api.ResourceKeyArn]); err != nil {
+				if err := unsubscribeSqsQueue(ctx, sdkConfig, res.Keys[api.ResourceKeyArn]); err != nil {
 					logger.Error("failed to unsubscribe queue", err, "arn", res.Keys[api.ResourceKeyArn])
 					s.checkErrorsCounter.Add(1)
 				}
 
 			case api.ResourceTypeSqsQueue:
-				active, err := isSqsQueueActive(ctx, sess, res.Keys[api.ResourceKeyQueueURL])
+				active, err := isSqsQueueActive(ctx, sdkConfig, res.Keys[api.ResourceKeyQueueURL])
 				if err != nil {
 					logger.Error("failed to check whether queue is active", err, "url", res.Keys[api.ResourceKeyQueueURL])
 					s.checkErrorsCounter.Add(1)
@@ -289,13 +289,13 @@ func (s *Server) CheckResources(ctx context.Context) {
 				}
 				anyActive = true
 				logger.Info("queue is active, deleting")
-				if err := deleteSqsQueue(ctx, sess, res.Keys[api.ResourceKeyQueueURL]); err != nil {
+				if err := deleteSqsQueue(ctx, sdkConfig, res.Keys[api.ResourceKeyQueueURL]); err != nil {
 					logger.Error("failed to delete queue", err, "url", res.Keys[api.ResourceKeyQueueURL])
 					s.checkErrorsCounter.Add(1)
 				}
 
 			case api.ResourceTypeEc2Instance:
-				_, err := isEc2InstanceActive(ctx, sess, res.Keys[api.ResourceKeyEc2InstanceID])
+				_, err := isEc2InstanceActive(ctx, sdkConfig, res.Keys[api.ResourceKeyEc2InstanceID])
 				if err != nil {
 					logger.Error("failed to check whether ec2 instance is active", err, "instance_id", res.Keys[api.ResourceKeyEc2InstanceID])
 					s.checkErrorsCounter.Add(1)
@@ -440,9 +440,7 @@ func (s *Server) ExperimentStatusHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(s.awsRegion),
-	})
+	sdkConfig, err := awscfg.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		s.ServerError(w, r, fmt.Errorf("failed to create aws session: %w", err))
 		return
@@ -464,7 +462,7 @@ func (s *Server) ExperimentStatusHandler(w http.ResponseWriter, r *http.Request)
 		for _, res := range mr.Resources {
 			switch res.Type {
 			case api.ResourceTypeEcsTask:
-				active, err := isTaskActive(ctx, sess, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn])
+				active, err := isTaskActive(ctx, sdkConfig, res.Keys[api.ResourceKeyEcsClusterArn], res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					receivedErrors = true
 					continue
@@ -474,7 +472,7 @@ func (s *Server) ExperimentStatusHandler(w http.ResponseWriter, r *http.Request)
 					continue
 				}
 			case api.ResourceTypeEcsTaskDefinition:
-				active, err := isTaskDefinitionActive(ctx, sess, res.Keys[api.ResourceKeyArn])
+				active, err := isTaskDefinitionActive(ctx, sdkConfig, res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					receivedErrors = true
 					continue
@@ -485,7 +483,7 @@ func (s *Server) ExperimentStatusHandler(w http.ResponseWriter, r *http.Request)
 				}
 
 			case api.ResourceTypeEcsSnsSubscription:
-				active, err := isSnsSubscriptionActive(ctx, sess, res.Keys[api.ResourceKeyArn])
+				active, err := isSnsSubscriptionActive(ctx, sdkConfig, res.Keys[api.ResourceKeyArn])
 				if err != nil {
 					receivedErrors = true
 					continue
@@ -496,7 +494,7 @@ func (s *Server) ExperimentStatusHandler(w http.ResponseWriter, r *http.Request)
 				}
 
 			case api.ResourceTypeSqsQueue:
-				active, err := isSqsQueueActive(ctx, sess, res.Keys[api.ResourceKeyQueueURL])
+				active, err := isSqsQueueActive(ctx, sdkConfig, res.Keys[api.ResourceKeyQueueURL])
 				if err != nil {
 					receivedErrors = true
 					continue

@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/plprobelab/thunderdome/pkg/filter"
@@ -487,7 +487,7 @@ type SQSRequestSource struct {
 	metrics *RequestSourceMetrics
 
 	mu       sync.Mutex
-	svc      *sqs.SQS
+	svc      *sqs.Client
 	queueURL string
 	err      error
 }
@@ -516,17 +516,14 @@ func (s *SQSRequestSource) Chan() <-chan request.Request {
 }
 
 func (s *SQSRequestSource) Start() error {
-	sess, err := session.NewSession(s.cfg.AWSConfig)
-	if err != nil {
-		return fmt.Errorf("new session: %w", err)
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.svc = sqs.New(sess)
+	cfg := aws.NewConfig()
+	s.svc = sqs.NewFromConfig(*cfg)
 
-	urlResult, err := s.svc.GetQueueUrl(&sqs.GetQueueUrlInput{
-		QueueName: aws.String(s.cfg.Queue),
+	urlResult, err := s.svc.GetQueueUrl(context.TODO(), &sqs.GetQueueUrlInput{
+		QueueName: &s.cfg.Queue,
 	})
 	if err != nil {
 		return fmt.Errorf("get queue url: %w", err)
@@ -543,17 +540,17 @@ func (s *SQSRequestSource) Start() error {
 			default:
 			}
 
-			msgResult, err := s.svc.ReceiveMessage(&sqs.ReceiveMessageInput{
-				AttributeNames: []*string{
-					aws.String(sqs.MessageSystemAttributeNameSentTimestamp),
+			msgResult, err := s.svc.ReceiveMessage(context.TODO(), &sqs.ReceiveMessageInput{
+				AttributeNames: []sqstypes.QueueAttributeName{
+					sqstypes.QueueAttributeName(sqstypes.MessageSystemAttributeNameSentTimestamp),
 				},
-				MessageAttributeNames: []*string{
-					aws.String(sqs.QueueAttributeNameAll),
+				MessageAttributeNames: []string{
+					"All",
 				},
-				QueueUrl:            aws.String(s.queueURL),
-				MaxNumberOfMessages: aws.Int64(10),
-				VisibilityTimeout:   aws.Int64(5),
-				WaitTimeSeconds:     aws.Int64(10),
+				QueueUrl:            &s.queueURL,
+				MaxNumberOfMessages: 10,
+				VisibilityTimeout:   5,
+				WaitTimeSeconds:     10,
 			})
 			if err != nil {
 				s.metrics.errors.Add(1)
@@ -567,7 +564,7 @@ func (s *SQSRequestSource) Start() error {
 					log.Printf("message body was nil: %s", *msg.MessageId)
 					continue
 				}
-				_, err = s.svc.DeleteMessage(&sqs.DeleteMessageInput{
+				_, err = s.svc.DeleteMessage(context.TODO(), &sqs.DeleteMessageInput{
 					QueueUrl:      aws.String(s.queueURL),
 					ReceiptHandle: msg.ReceiptHandle,
 				})

@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/exec"
 
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 func GitClone(workdir string, repo string, targetDir string) error {

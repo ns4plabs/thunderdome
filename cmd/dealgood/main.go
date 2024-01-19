@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/profile"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
@@ -337,17 +337,8 @@ func Run(cc *cli.Context) error {
 			return fmt.Errorf("loki source: %w", err)
 		}
 	case "sqs":
-		awscfg := aws.NewConfig()
-		awscfg.Region = aws.String(flags.sqsRegion)
-		awscfg.WithHTTPClient(&http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-			},
-			Timeout: 10 * time.Second,
-		})
-
 		cfg := &SQSConfig{
-			AWSConfig: awscfg,
+			AWSConfig: aws.NewConfig(),
 			Queue:     flags.sqsQueue,
 		}
 

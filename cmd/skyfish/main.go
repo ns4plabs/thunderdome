@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/pkg/profile"
 	"github.com/urfave/cli/v2"
 
@@ -138,15 +136,11 @@ func Run(cc *cli.Context) error {
 		rg.Add(Restartable{ps})
 	}
 
-	awscfg := aws.NewConfig()
-	awscfg.Region = aws.String(flags.snsRegion)
-	awscfg.WithHTTPClient(&http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-		},
-		Timeout: 10 * time.Second,
-	})
-	publisher, err := NewPublisher(awscfg, flags.topicArn, source.Chan())
+	awscfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("new session: %w", err)
+	}
+	publisher, err := NewPublisher(&awscfg, flags.topicArn, source.Chan())
 	if err != nil {
 		return fmt.Errorf("new publisher: %w", err)
 	}

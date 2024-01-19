@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/plprobelab/thunderdome/pkg/loki"
@@ -95,16 +95,12 @@ func NewPublisher(awscfg *aws.Config, topicArn string, logch <-chan loki.LogLine
 // Run starts running the publisher and blocks until the context is canceled or a fatal
 // error is encountered.
 func (p *Publisher) Run(ctx context.Context) error {
-	sess, err := session.NewSession(p.awscfg)
-	if err != nil {
-		return fmt.Errorf("new session: %w", err)
-	}
 	log.Printf("connected to sns, publishing to topic %s", p.topicArn)
 
 	p.connectedGauge.Set(1)
 	defer p.connectedGauge.Set(0)
 
-	svc := sns.New(sess)
+	svc := sns.NewFromConfig(*p.awscfg)
 
 	buf := new(bytes.Buffer)
 	buf.Grow(MaxMessageSize)
@@ -145,7 +141,7 @@ func (p *Publisher) Run(ctx context.Context) error {
 			}
 
 			if buf.Len()+len(data) > MaxMessageSize {
-				_, err := svc.Publish(&sns.PublishInput{
+				_, err := svc.Publish(ctx, &sns.PublishInput{
 					Message:  aws.String(buf.String()),
 					TopicArn: aws.String(p.topicArn),
 				})
